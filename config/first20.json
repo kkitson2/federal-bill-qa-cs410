@@ -1,0 +1,26 @@
+{
+  "collection": "first20",
+  "description": "118th Congress digital policy collection with financial privacy and a child-welfare contrast bill. All API-listed Formatted XML bill versions are retained; other text formats are recorded as exclusions.",
+  "bills": [
+    {"congress":118,"bill_type":"hr","number":8818,"reason":"Comprehensive privacy rights; long definitions and nested statutory amendments"},
+    {"congress":118,"bill_type":"hr","number":2701,"reason":"Online privacy rights; long multi-title document"},
+    {"congress":118,"bill_type":"hr","number":7521,"reason":"Platform regulation; multiple versions with overlapping text"},
+    {"congress":118,"bill_type":"hr","number":7520,"reason":"Sensitive data transfers; related policy with different provisions"},
+    {"congress":118,"bill_type":"hr","number":7891,"reason":"House child-safety proposal; companion-style comparison"},
+    {"congress":118,"bill_type":"hr","number":6149,"reason":"Age verification, consent and recommendation systems"},
+    {"congress":118,"bill_type":"s","number":1409,"reason":"Senate child-safety proposal; marked deletions and insertions"},
+    {"congress":118,"bill_type":"s","number":1418,"reason":"Children and teens privacy; amendments to existing law"},
+    {"congress":118,"bill_type":"s","number":2073,"reason":"Title and subject changes; separate amendment-document XML"},
+    {"congress":118,"bill_type":"s","number":686,"reason":"Foreign technology regulation; definitions and enforcement"},
+    {"congress":118,"bill_type":"s","number":744,"reason":"Data-care duties; shorter privacy proposal"},
+    {"congress":118,"bill_type":"s","number":1356,"reason":"ASSESS AI Act; government AI task-force and assessment requirements"},
+    {"congress":118,"bill_type":"hr","number":7532,"reason":"Federal AI governance; reported amendments"},
+    {"congress":118,"bill_type":"s","number":3312,"reason":"AI research and accountability; reported amendments"},
+    {"congress":118,"bill_type":"s","number":2714,"reason":"AI research resources; Senate governance proposal"},
+    {"congress":118,"bill_type":"hr","number":5077,"reason":"AI research resources; House companion-style text"},
+    {"congress":118,"bill_type":"hr","number":4552,"reason":"Federal cybersecurity; complex statutory revisions"},
+    {"congress":118,"bill_type":"hr","number":4502,"reason":"Cybersecurity workforce; short bill with multiple stages"},
+    {"congress":118,"bill_type":"hr","number":5028,"reason":"Family Poverty is Not Child Neglect Act; child-welfare contrast for distinguishing child safety in different policy domains"},
+    {"congress":118,"bill_type":"hr","number":1165,"reason":"Data Privacy Act of 2023; financial privacy with two verified supported XML versions"}
+  ]
+}

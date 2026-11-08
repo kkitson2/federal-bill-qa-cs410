@@ -1,0 +1,19 @@
+name: billbridge-data
+services:
+  db:
+    image: postgres:17@sha256:ff87138949ad9a46f32ff23bd6852b52ce024a13dffe9b4087be98292cdd3b4f
+    environment:
+      POSTGRES_USER: billbridge
+      POSTGRES_PASSWORD: billbridge-local-only
+      POSTGRES_DB: billbridge_data
+    ports:
+      - "127.0.0.1:55433:5432"
+    volumes:
+      - bill-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U billbridge -d billbridge_data"]
+      interval: 2s
+      timeout: 5s
+      retries: 20
+volumes:
+  bill-data:

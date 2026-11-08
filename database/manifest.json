@@ -1,0 +1,18 @@
+{
+  "bytes": 2842919,
+  "file": "billbridge.dump",
+  "intermediate_rows": {
+    "bill_versions": 39,
+    "bills": 20,
+    "sections": 408
+  },
+  "postgres_major": 17,
+  "sha256": "5a11675693e5c8f013ee6dd303608f15a819445481e9e0525825e542ea5b91b1",
+  "snapshot_id": "ec140f4e773628f438fdfd4fe0e217fcc17be9be2c0f01aa63c23cfd1228b39d",
+  "staging_rows": {
+    "congress_bills": 20,
+    "congress_text_versions": 39,
+    "govinfo_packages": 39,
+    "govinfo_sections": 408
+  }
+}

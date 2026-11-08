@@ -218,3 +218,10 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Group 1: local credentials and generated data
+.env.*
+!.env.example
+/data/
+/artifacts/
+.DS_Store
