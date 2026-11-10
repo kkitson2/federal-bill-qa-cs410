@@ -1,0 +1,7 @@
+question_id,rank,section_id,method
+Q01,1,B,bm25
+Q01,2,A,bm25
+Q01,3,C,bm25
+Q02,1,D,bm25
+Q02,2,F,bm25
+Q02,3,E,bm25
