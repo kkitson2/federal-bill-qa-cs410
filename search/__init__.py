@@ -7,6 +7,6 @@
 """
 
 from .corpus import Section, load_sections
-from .engine import METHODS, SearchResult, Searcher
+from .engine import DEFAULT_METHOD, METHODS, SearchResult, Searcher
 
-__all__ = ["METHODS", "SearchResult", "Searcher", "Section", "load_sections"]
+__all__ = ["DEFAULT_METHOD", "METHODS", "SearchResult", "Searcher", "Section", "load_sections"]

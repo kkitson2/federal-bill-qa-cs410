@@ -42,6 +42,15 @@ def load_sections(url: str | None = None) -> list[Section]:
     """Read every record of intermediate.sections, in a stable order."""
     import psycopg  # imported lazily so the rest of the package works without a database
 
-    with psycopg.connect(url or database_url()) as conn:
-        rows = conn.execute(_QUERY).fetchall()
+    try:
+        with psycopg.connect(url or database_url(), connect_timeout=5) as conn:
+            rows = conn.execute(_QUERY).fetchall()
+    except psycopg.Error as error:
+        raise RuntimeError(
+            "Could not read intermediate.sections. Is the database running and restored? "
+            "(`docker compose up -d db`, see search/README.md; or set SEARCH_DATABASE_URL). "
+            f"Driver said: {str(error).strip().splitlines()[0] if str(error).strip() else type(error).__name__}"
+        ) from error
+    if not rows:
+        raise RuntimeError("intermediate.sections is empty; restore database/billbridge.dump first")
     return [Section(*row) for row in rows]

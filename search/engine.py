@@ -2,15 +2,21 @@
 
 from __future__ import annotations
 
+import threading
+from collections import Counter
 from dataclasses import asdict, dataclass
 
-from .bm25 import BM25
+from . import lexical
 from .corpus import Section, load_sections
 from .text import tokenize
 
-# bm25plus is BM25+ (delta=1); hybrid fuses bm25 and semantic with reciprocal rank fusion.
-METHODS = ("bm25", "bm25plus", "semantic", "hybrid")
+DEFAULT_METHOD = "hybrid"
+# Keyword methods (course retrieval models), then embeddings, then the fusion of bm25 + semantic.
+LEXICAL_METHODS = ("tfidf", "bm25", "bm25plus", "ql_jm", "ql_dirichlet", "bm25_prf")
+METHODS = LEXICAL_METHODS + ("semantic", "hybrid")
 RRF_K = 60  # standard constant from Cormack, Clarke & Buettcher (SIGIR 2009)
+MAX_K = 100
+PRF_DOCS = 5  # pseudo-relevant documents for Rocchio feedback
 
 
 @dataclass(frozen=True)
@@ -34,47 +40,48 @@ class SearchResult:
 
 
 def bm25_document(section: Section, heading_weight: int = 2, include_title: bool = False) -> str:
-    """Text indexed for BM25. Headings are short and on-topic, so they count extra (a simple form of
-    BM25F field weighting)."""
+    """Text indexed for keyword search. Headings are short and on-topic, so they count extra (a
+    simple form of BM25F field weighting: field term counts are combined before scoring)."""
     parts = [section.heading] * heading_weight + [section.text]
     if include_title:
         parts.insert(0, section.title)
     return "\n".join(parts)
 
 
-def ranking(scores: list[float]) -> list[int]:
-    """Indexes by descending score; ties broken by corpus order so results are deterministic."""
-    return sorted(range(len(scores)), key=lambda i: (-scores[i], i))
+def ranking(scores: dict[int, float]) -> list[int]:
+    """Document indexes by descending score; ties broken by corpus order so results are deterministic."""
+    return sorted(scores, key=lambda i: (-scores[i], i))
 
 
-def reciprocal_rank_fusion(rankings: list[list[int]], k: int = RRF_K) -> list[float]:
-    """score(d) = sum over rankings of 1 / (k + rank of d), with ranks starting at 1."""
-    n = max((max(r) for r in rankings if r), default=-1) + 1
-    fused = [0.0] * n
+def reciprocal_rank_fusion(rankings: list[list[int]], k: int = RRF_K) -> dict[int, float]:
+    """score(d) = sum over rankings containing d of 1 / (k + rank of d), ranks starting at 1."""
+    fused: dict[int, float] = {}
     for order in rankings:
         for rank, i in enumerate(order, start=1):
-            fused[i] += 1.0 / (k + rank)
+            fused[i] = fused.get(i, 0.0) + 1.0 / (k + rank)
     return fused
 
 
 class Searcher:
-    """Builds the keyword index once; `search()` is then cheap to call repeatedly.
+    """Builds the keyword index once; `search()` is then cheap to call repeatedly, from any thread.
 
-    The semantic index (embedding model + chunk vectors) loads on first semantic/hybrid query.
+    The semantic index (embedding model + chunk vectors) loads on the first semantic/hybrid query,
+    or up front with `warm_up()`.
     """
 
     # include_title=False: the bill title is identical for every section of a bill, so it adds
-    # bill-level noise rather than telling sections apart (it lowered nDCG in a quick check).
+    # bill-level noise rather than telling sections apart.
     def __init__(self, sections: list[Section], heading_weight: int = 2, include_title: bool = False,
-                 k1: float = 1.2, b: float = 0.75, model: str | None = None):
+                 model: str | None = None):
         if not sections:
             raise ValueError("No sections to index")
         self.sections = sections
         docs = [tokenize(bm25_document(s, heading_weight, include_title)) for s in sections]
-        self.bm25 = BM25(docs, k1=k1, b=b)
-        self.bm25plus = BM25(docs, k1=k1, b=b, delta=1.0)
+        self.index = lexical.InvertedIndex(docs)
+        self.docs_tf = [Counter(d) for d in docs]
         self.model = model
         self._semantic = None
+        self._lock = threading.Lock()
 
     @classmethod
     def from_database(cls, url: str | None = None, **options) -> "Searcher":
@@ -83,36 +90,58 @@ class Searcher:
     @property
     def semantic(self):
         if self._semantic is None:
-            from .semantic import DEFAULT_MODEL, SemanticIndex
-            self._semantic = SemanticIndex(self.sections, self.model or DEFAULT_MODEL)
+            with self._lock:  # load the model only once even if several requests arrive together
+                if self._semantic is None:
+                    try:
+                        from .semantic import DEFAULT_MODEL, SemanticIndex
+                    except ImportError as error:
+                        raise RuntimeError("Semantic search needs extra packages: "
+                                           "run `uv sync --no-editable --group search`") from error
+                    self._semantic = SemanticIndex(self.sections, self.model or DEFAULT_MODEL)
         return self._semantic
 
-    def scores(self, question: str, method: str) -> list[float]:
-        """One score per section (same order as self.sections); 0 or less means no keyword match."""
-        if method == "bm25":
-            return self.bm25.scores(tokenize(question))
-        if method == "bm25plus":
-            return self.bm25plus.scores(tokenize(question))
+    def warm_up(self) -> None:
+        """Load the embedding model now instead of on the first semantic/hybrid query."""
+        self.semantic  # noqa: B018
+
+    def scores(self, question: str, method: str) -> dict[int, float]:
+        """{section index: score}. Keyword methods include only sections sharing a query term."""
         if method == "semantic":
-            return self.semantic.scores(question)
+            return dict(enumerate(self.semantic.scores(question)))
         if method == "hybrid":
-            keyword = self.bm25.scores(tokenize(question))
-            # Only sections with a keyword match enter the keyword ranking; all enter the semantic one.
-            keyword_order = [i for i in ranking(keyword) if keyword[i] > 0]
-            fused = reciprocal_rank_fusion([keyword_order, ranking(self.semantic.scores(question))])
-            return fused + [0.0] * (len(self.sections) - len(fused))
+            keyword = ranking(self.scores(question, "bm25"))
+            meaning = ranking(self.scores(question, "semantic"))
+            return reciprocal_rank_fusion([keyword, meaning])
+        q = lexical.query_vector(tokenize(question))
+        if method == "tfidf":
+            return lexical.pivoted_tfidf(self.index, q)
+        if method == "bm25":
+            return lexical.bm25(self.index, q)
+        if method == "bm25plus":
+            return lexical.bm25(self.index, q, delta=1.0)
+        if method == "ql_jm":
+            return lexical.ql_jelinek_mercer(self.index, q)
+        if method == "ql_dirichlet":
+            return lexical.ql_dirichlet(self.index, q)
+        if method == "bm25_prf":
+            first = ranking(lexical.bm25(self.index, q))[:PRF_DOCS]
+            return lexical.bm25(self.index, lexical.rocchio_expand(self.index, self.docs_tf, q, first))
         raise ValueError(f"Unknown method {method!r}; choose from {', '.join(METHODS)}")
 
-    def search(self, question: str, k: int = 10, method: str = "hybrid") -> list[SearchResult]:
-        scores = self.scores(question, method)
-        keyword_only = method in ("bm25", "bm25plus")
+    def search(self, question: str, k: int = 10, method: str = DEFAULT_METHOD) -> list[SearchResult]:
+        """Top-k sections for a question. Raises ValueError for an empty question, bad k or method."""
+        if not isinstance(question, str) or not question.strip():
+            raise ValueError("question must be a non-empty string")
+        if isinstance(k, bool) or not isinstance(k, int) or not 1 <= k <= MAX_K:
+            raise ValueError(f"k must be an integer from 1 to {MAX_K}")
+        if method not in METHODS:
+            raise ValueError(f"Unknown method {method!r}; choose from {', '.join(METHODS)}")
+        scores = self.scores(question.strip(), method)
         results = []
         for i in ranking(scores)[:k]:
-            if keyword_only and scores[i] <= 0:
-                break  # no query word in this section or any later one
             s = self.sections[i]
             results.append(SearchResult(
-                rank=len(results) + 1, score=round(scores[i], 6), method=method,
+                rank=len(results) + 1, score=round(float(scores[i]), 6), method=method,
                 section_id=s.section_id, package_id=s.package_id, bill=s.bill,
                 version_label=s.version_label, number=s.number, heading=s.heading, title=s.title,
                 citation=s.citation, source_url=s.source_url, text=s.text,
