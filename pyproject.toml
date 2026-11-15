@@ -7,6 +7,8 @@ dependencies = ["httpx>=0.27,<1", "pydantic>=2.9,<3", "lxml>=5,<7", "psycopg[bin
 
 [dependency-groups]
 dev = ["pytest>=8,<10"]
+# Group 2 semantic search: uv sync --group search
+search = ["fastembed>=0.5,<1", "numpy>=1.26,<3"]
 
 [project.scripts]
 billbridge-data = "billbridge_data.cli:main"
@@ -19,7 +21,7 @@ build-backend = "hatchling.build"
 testpaths = ["tests"]
 
 [tool.hatch.build.targets.wheel]
-packages = ["billbridge_data", "ingestion", "staging", "intermediate", "curated"]
+packages = ["billbridge_data", "ingestion", "staging", "intermediate", "curated", "search"]
 
 [tool.uv]
-cache-keys = [{ file = "pyproject.toml" }, { file = "billbridge_data/**/*.py" }, { file = "billbridge_data/**/*.sql" }, { file = "ingestion/**/*.py" }, { file = "staging/**/*.py" }, { file = "intermediate/**/*.py" }, { file = "curated/**/*.py" }]
+cache-keys = [{ file = "pyproject.toml" }, { file = "billbridge_data/**/*.py" }, { file = "billbridge_data/**/*.sql" }, { file = "ingestion/**/*.py" }, { file = "staging/**/*.py" }, { file = "intermediate/**/*.py" }, { file = "curated/**/*.py" }, { file = "search/**/*.py" }]

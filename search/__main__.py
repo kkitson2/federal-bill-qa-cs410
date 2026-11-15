@@ -33,7 +33,7 @@ def main(argv: list[str] | None = None) -> None:
     ask = sub.add_parser("ask", help="Search one question")
     ask.add_argument("question")
     ask.add_argument("-k", type=int, default=5)
-    ask.add_argument("--method", choices=METHODS, default="bm25")
+    ask.add_argument("--method", choices=METHODS, default="hybrid")
     ask.add_argument("--json", action="store_true", help="Print full results as JSON")
 
     run = sub.add_parser("run-eval", help="Rank sections for every labeled question")

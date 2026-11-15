@@ -40,7 +40,7 @@ def test_bm25_prefers_matching_and_rarer_terms():
 
 
 def test_search_returns_ranked_results_with_citations():
-    results = Searcher(CORPUS).search("Do data brokers have to register?", k=2)
+    results = Searcher(CORPUS).search("Do data brokers have to register?", k=2, method="bm25")
     assert [r.section_id for r in results][0] == "a"
     top = results[0]
     assert top.rank == 1 and top.citation == "HR 1, section a" and top.source_url
@@ -49,14 +49,14 @@ def test_search_returns_ranked_results_with_citations():
 
 def test_search_omits_zero_score_and_respects_k():
     searcher = Searcher(CORPUS)
-    assert [r.section_id for r in searcher.search("bank deletion", k=10)] == ["b"]
-    assert searcher.search("zebra", k=10) == []
-    assert len(searcher.search("act data bank", k=1)) == 1
+    assert [r.section_id for r in searcher.search("bank deletion", k=10, method="bm25")] == ["b"]
+    assert searcher.search("zebra", k=10, method="bm25") == []
+    assert len(searcher.search("act data bank", k=1, method="bm25")) == 1
 
 
 def test_ties_are_deterministic():
     twins = [section("x", "Twin", "twin words"), section("y", "Twin", "twin words")]
-    assert [r.section_id for r in Searcher(twins).search("twin", k=2)] == ["x", "y"]
+    assert [r.section_id for r in Searcher(twins).search("twin", k=2, method="bm25")] == ["x", "y"]
 
 
 def test_unknown_method_rejected():
@@ -67,3 +67,22 @@ def test_unknown_method_rejected():
 def test_read_questions_dedupes_label_rows():
     questions = read_questions(Path(__file__).parents[1] / "eval/labels.csv")
     assert len(questions) == 30 and questions[0][0] == "Q01"
+
+
+def test_bm25plus_gives_matched_terms_a_floor():
+    docs = [["bank"] + ["filler"] * 500, ["other"]]
+    plain, plus = BM25(docs).scores(["bank"]), BM25(docs, delta=1.0).scores(["bank"])
+    assert plus[0] > plain[0] and plus[1] == plain[1] == 0
+
+
+def test_hybrid_without_model_uses_fusion(monkeypatch):
+    searcher = Searcher(CORPUS)
+
+    class FakeSemantic:  # prefers section "c", BM25 prefers "b"
+        def scores(self, question):
+            return [0.1, 0.2, 0.9]
+
+    searcher._semantic = FakeSemantic()
+    assert searcher.search("bank deletion", k=3, method="semantic")[0].section_id == "c"
+    hybrid = [r.section_id for r in searcher.search("bank deletion", k=3, method="hybrid")]
+    assert set(hybrid[:2]) == {"b", "c"}  # each is first in one list, so both beat "a"
