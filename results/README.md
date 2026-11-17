@@ -7,6 +7,19 @@ paired significance tests). Precision and nDCG come from Group 1's `eval/score.p
 Files: [runs.csv](runs.csv) (all rankings), [comparison.md](comparison.md) (all measures, all
 planned tests, per-question nDCG@10). Re-run: [search/README.md](../search/README.md#re-running-the-evaluation).
 
+## Headline (nDCG@10)
+
+| **0.491** | **0.644** | **0.606** |
+|:---:|:---:|:---:|
+| BM25 | Semantic | Hybrid |
+| Keyword baseline | Highest score | Default method |
+
+Semantic retrieval handles plain-language questions much better than keyword matching, because it
+bridges the gap between everyday wording and legal wording. Hybrid fuses semantic with BM25
+so exact terms (bill names, section numbers, defined terms) still match. Hybrid is the only method
+significantly better than BM25 under both tests, and it is statistically tied with semantic, so
+it is the default. Details below.
+
 ## Setup
 
 - **Corpus**: 408 records of `intermediate.sections` (20 bills, 39 versions), snapshot
