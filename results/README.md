@@ -16,9 +16,10 @@ planned tests, per-question nDCG@10). Re-run: [search/README.md](../search/READM
 
 Semantic retrieval handles plain-language questions much better than keyword matching, because it
 bridges the gap between everyday wording and legal wording. Hybrid fuses semantic with BM25
-so exact terms (bill names, section numbers, defined terms) still match. Hybrid is the only method
-significantly better than BM25 under both tests, and it is statistically tied with semantic, so
-it is the default. Details below.
+so exact terms (bill names, section numbers, defined terms) still match. Hybrid remains the
+chosen default. Its nDCG@10 improvement over BM25 has p<0.05 under both unadjusted tests;
+neither test detected a difference between hybrid and semantic. This does not establish equal
+performance. Details below.
 
 ## Setup
 
@@ -63,8 +64,7 @@ MAP and gMAP use the top 10 only (AP divides by all relevant sections, so unretr
 as 0); gMAP floors AP at 1e-5. P@10 is low partly by construction: many questions have fewer than
 10 relevant sections and `score.py` divides by k.
 
-Planned paired tests on per-question nDCG@10 (two-sided; AP gives the same picture, see
-comparison.md):
+Planned paired tests on per-question nDCG@10 (two-sided; AP results are in comparison.md):
 
 | A vs B | mean diff | A better / B better / tie | sign test p | Wilcoxon p |
 |---|---|---|---|---|
@@ -77,27 +77,30 @@ comparison.md):
 | hybrid vs bm25 | +0.115 | 15 / 4 / 11 | **0.019** | **0.042** |
 | hybrid vs semantic | -0.038 | 6 / 9 / 15 | 0.607 | 0.426 |
 
-Nine comparisons at α=0.05 means roughly one false positive could appear by chance; the
-bm25_prf result (p≈0.005) and the hybrid result (significant under both tests) are the robust ones.
+These eight method comparisons use unadjusted p-values. Testing multiple comparisons increases
+the chance of false positives, so treat the significance results as exploratory. Agreement
+between the sign and Wilcoxon tests does not correct for multiple comparisons.
 
 ## Findings
 
-1. **The classic keyword models are statistically indistinguishable.** TF-IDF with pivoted
-   normalization, BM25, BM25+ and both query-likelihood variants differ by at most 0.05 nDCG@10,
-   none significant. This matches the lecture point that well-designed retrieval functions
-   (TF transformation + IDF + length normalization) behave similarly. Query likelihood with
+1. **Neither test detected a difference from BM25 for the other classic keyword models.**
+   TF-IDF with pivoted normalization, BM25+ and both query-likelihood variants have p>0.05
+   against BM25 on nDCG@10. This small test set does not establish equivalent performance.
+   These models share TF transformation and document-length normalization. Query likelihood with
    smoothing is the same story from the probabilistic side: its rank-equivalent form is itself a
    TF-IDF-and-length-normalization function (the tests check that it ranks exactly like log p(q|d)).
 2. **Meaning-based search is the real gain.** Questions are in everyday language ("Would TikTok be
    banned?") while bills use legal terms ("foreign adversary controlled applications"). Semantic
    search improves every measure over BM25 (nDCG@10 +0.154, MRR 0.68 vs 0.48, gMAP 4×: fewer
    complete failures).
-3. **Hybrid is the default.** It is the only method significantly better than BM25 under both
-   tests, and it is statistically tied with semantic (p≈0.4–0.6). It also keeps exact-term
+3. **Hybrid is the default.** Its nDCG@10 improvement over BM25 has p<0.05 under both
+   unadjusted tests. Neither test detected a difference from semantic (p≈0.4–0.6), which
+   does not prove the methods are equivalent. It also keeps exact-term
    matching (bill names, section numbers, defined terms) that real users will type but these
    plain-language questions rarely test. Equal-weight fusion costs a little when BM25 is weak; we
    did not tune the weight on the test questions.
-4. **Pseudo-relevance feedback hurt significantly** (worse on 11 questions, better on 1). Week 5
+4. **Pseudo-relevance feedback scored lower** (worse on 11 questions, better on 1;
+   p<0.05 under both unadjusted nDCG@10 tests). Week 5
    warns that pseudo feedback assumes the top documents are relevant. Here BM25's top 5 are often
    wrong, and they are redundant: in 8 of 30 questions the five feedback sections cover at most
    two distinct headings (the same section in several bill versions), so the expansion terms
@@ -115,7 +118,7 @@ bm25_prf result (p≈0.005) and the hybrid result (significant under both tests)
 
 ## Limits
 
-- 30 questions is a small test set; only large differences reach significance.
+- 30 questions is a small test set; both performance estimates and significance results are uncertain.
 - Default parameters only; tuning (e.g. BM25 b, fusion weight, μ) would need separate tuning
   questions to avoid overfitting.
 - Labels cover every copy of a section across bill versions, so listing several versions of the
